@@ -102,7 +102,8 @@ function showOpenWithDialog(aPath, aOptions={}) {
 					if (aOptions.arrWinCommandLineArguments && aOptions.arrWinCommandLineArguments.length > 0) {
 						sei.lpParameters = ostypes.TYPE.LPCTSTR.targetType.array()(aOptions.arrWinCommandLineArguments.join(' '));
 					}
-					//sei.lpVerb = ostypes.TYPE.LPCTSTR.targetType.array()('open');
+					sei.lpVerb = ostypes.TYPE.LPCTSTR.targetType.array()('openas');
+					sei.fMask = ostypes.CONST.SEE_MASK_INVOKEIDLIST;
 					sei.nShow = ostypes.CONST.SW_SHOWNORMAL;
 					
 					var rez_ShellExecuteEx = ostypes.API('ShellExecuteEx')(sei.address());

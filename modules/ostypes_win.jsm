@@ -339,7 +339,8 @@ var winInit = function() {
 		MDT_Default: 0, // MDT_Effective_DPI
 		WS_VISIBLE: 0x10000000,
 		GWL_STYLE: -16,
-		SW_SHOWNORMAL: 1
+		SW_SHOWNORMAL: 1,
+		SEE_MASK_INVOKEIDLIST: 0x0000000C // 12
 	};
 
 	var _lib = {}; // cache for lib
