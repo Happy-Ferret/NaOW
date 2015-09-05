@@ -86,12 +86,31 @@ function init(objCore) {
 }
 
 // Start - Addon Functionality
-function showOpenWithDialog(aOptions) {
+function showOpenWithDialog(aPath, aOptions={}) {
+	// aPath can be a url, it is a js string
 	
 	switch (core.os.toolkit.indexOf('gtk') == 0 ? 'gtk' : core.os.name) {
 		case 'winnt':
 			
-				
+					// aOptions supported:
+						// arrWinCommandLineArguments: js array of js strings
+						
+					var sei = ostypes.TYPE.SHELLEXECUTEINFO();
+					//console.info('ostypes.TYPE.SHELLEXECUTEINFO.size:', ostypes.TYPE.SHELLEXECUTEINFO.size);
+					sei.cbSize = ostypes.TYPE.SHELLEXECUTEINFO.size;
+					sei.lpFile = ostypes.TYPE.LPCTSTR.targetType.array()(aPath);
+					if (aOptions.arrWinCommandLineArguments && aOptions.arrWinCommandLineArguments.length > 0) {
+						sei.lpParameters = ostypes.TYPE.LPCTSTR.targetType.array()(aOptions.arrWinCommandLineArguments.join(' '));
+					}
+					//sei.lpVerb = ostypes.TYPE.LPCTSTR.targetType.array()('open');
+					sei.nShow = ostypes.CONST.SW_SHOWNORMAL;
+					
+					var rez_ShellExecuteEx = ostypes.API('ShellExecuteEx')(sei.address());
+					console.info('rez_ShellExecuteEx:', rez_ShellExecuteEx.toString(), uneval(rez_ShellExecuteEx));
+					if (rez_ShellExecuteEx == false) {
+						console.error('Failed rez_ShellExecuteEx, winLastError:', ctypes.winLastError);
+						throw new Error('failed to launch');
+					}
 				
 			break;
 		case 'gtk':

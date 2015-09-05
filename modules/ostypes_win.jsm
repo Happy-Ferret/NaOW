@@ -171,7 +171,24 @@ var winTypes = function() {
         { right: this.LONG },
         { bottom: this.LONG }
     ]);
-
+	this.SHELLEXECUTEINFO = ctypes.StructType('_SHELLEXECUTEINFO', [
+		{ 'cbSize': this.DWORD },
+		{ 'fMask': this.ULONG },
+		{ 'hwnd': this.HWND },
+		{ 'lpVerb': this.LPCTSTR },
+		{ 'lpFile': this.LPCTSTR },
+		{ 'lpParameters': this.LPCTSTR },
+		{ 'lpDirectory': this.LPCTSTR },
+		{ 'nShow': this.INT },
+		{ 'hInstApp': this.HINSTANCE },
+		{ 'lpIDList': this.LPVOID },
+		{ 'lpClass': this.LPCTSTR },
+		{ 'hkeyClass': this.HKEY },
+		{ 'dwHotKey': this.DWORD },
+		{ 'hIcon': this.HANDLE }, // union {HANDLE hIcon;  HANDLE hMonitor;} DUMMYUNIONNAME; // i picked hIcon because i might be able to get winxp to seperate its groups ia
+		{ 'hProcess': this.HANDLE }
+	]);
+	
 	// ADVANCED STRUCTS // based on "simple structs" to be defined first
 	this.BITMAPINFO = ctypes.StructType('BITMAPINFO', [
 		{ bmiHeader: this.BITMAPINFOHEADER },
@@ -322,22 +339,7 @@ var winInit = function() {
 		MDT_Default: 0, // MDT_Effective_DPI
 		WS_VISIBLE: 0x10000000,
 		GWL_STYLE: -16,
-		WM_MOUSEMOVE: 0x200,
-		WM_LBUTTONDOWN: 0x201,
-		WM_LBUTTONUP: 0x202,
-		WM_LBUTTONDBLCLK: 0x203,
-		WM_RBUTTONDOWN: 0x204,
-		WM_RBUTTONUP: 0x205,
-		WM_RBUTTONDBLCLK: 0x206,
-		WM_MBUTTONDOWN: 0x207,
-		WM_MBUTTONUP: 0x208,
-		WM_MBUTTONDBLCLK: 0x209,
-		WM_MOUSEWHEEL: 0x20A,
-		WM_XBUTTONDOWN: 0x20B,
-		WM_XBUTTONUP: 0x20C,
-		WM_XBUTTONDBLCLK: 0x20D,
-		WM_MOUSEHWHEEL: 0x20E,
-		WH_MOUSE_LL: 14
+		SW_SHOWNORMAL: 1
 	};
 
 	var _lib = {}; // cache for lib
@@ -811,65 +813,6 @@ var winInit = function() {
 				self.TYPE.UINT				// uFlags
 			);
 		},
-		////////////////// mousecontrol stuff
-		SetWindowsHookEx: function() {
-			/* HHOOK WINAPI SetWindowsHookEx(
-			 *   __in_ int       idHook,
-			 *   __in_ HOOKPROC  lpfn,
-			 *   __in_ HINSTANCE hMod,
-			 *   __in_ DWORD     dwThreadId
-			 * );
-			 */
-			return lib('user32').declare(ifdef_UNICODE ? 'SetWindowsHookExW' : 'SetWindowsHookExA', self.TYPE.ABI,
-				self.TYPE.HHOOK,
-				self.TYPE.INT,
-				self.TYPE.HOOKPROC,
-				self.TYPE.HINSTANCE,
-				self.TYPE.DWORD
-			);
-		},
-		UnhookWindowsHookEx: function() {
-			/* https://msdn.microsoft.com/en-us/library/windows/desktop/ms644993%28v=vs.85%29.aspx
-			 * BOOL WINAPI UnhookWindowsHookEx(
-			 *   _in_ HHOOK hhk
-			 * );
-			 */
-			return lib('user32').declare('UnhookWindowsHookEx', self.TYPE.ABI,
-				self.TYPE.BOOL,
-				self.TYPE.HHOOK
-			);
-		},
-		CallNextHookEx: function() {
-			/* LRESULT WINAPI CallNextHookEx(
-			 *   __in_opt_ HHOOK  hhk,
-			 *   __in_     int    nCode,
-			 *   __in_     WPARAM wParam,
-			 *   __in_     LPARAM lParam
-			 * );			
-			 */
-			return lib('user32').declare('CallNextHookEx', self.TYPE.ABI,
-				self.TYPE.LRESULT,
-				self.TYPE.HHOOK,
-				self.TYPE.INT,
-				self.TYPE.WPARAM,
-				self.TYPE.LPARAM
-			);
-		},
-		RegisterRawInputDevices: function() {
-			/* https://msdn.microsoft.com/en-us/library/windows/desktop/ms645600%28v=vs.85%29.aspx
-			 * BOOL WINAPI RegisterRawInputDevices(
-			 *  __in_ PCRAWINPUTDEVICE pRawInputDevices,
-			 *  __in_ UINT             uiNumDevices,
-			 *  __in_ UINT             cbSize
-			 * );
-			 */
-			return lib('user32').declare('RegisterRawInputDevices', self.TYPE.ABI,
-				self.TYPE.BOOL,					// return
-				self.TYPE.PCRAWINPUTDEVICE,		// pRawInputDevices
-				self.TYPE.UINT,					// uiNumDevices
-				self.TYPE.UINT					// cbSize
-			);
-		},
 		GetCurrentThreadId: function() {
 			/* https://msdn.microsoft.com/en-us/library/windows/desktop/ms683183%28v=vs.85%29.aspx
 			 * DWORD WINAPI GetCurrentThreadId(
@@ -878,6 +821,18 @@ var winInit = function() {
 			 */
 			return lib('kernel32').declare('GetCurrentThreadId', self.TYPE.ABI,
 				self.TYPE.DWORD	// return
+			);
+		},
+		////////////////// naow stuff
+		ShellExecuteEx: function() {
+			/* https://msdn.microsoft.com/en-us/library/windows/desktop/bb762154%28v=vs.85%29.aspx
+			 * BOOL ShellExecuteEx(
+			 *   __inout_  SHELLEXECUTEINFO *pExecInfo
+			 * );
+			 */
+			return lib('shell32.dll').declare('ShellExecuteExW', self.TYPE.ABI,
+				self.TYPE.BOOL,					// return
+				self.TYPE.SHELLEXECUTEINFO.ptr	// *pExecInfo
 			);
 		}
 	};

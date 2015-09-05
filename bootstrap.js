@@ -144,6 +144,40 @@ var myWidgetListener = {
 		CustomizableUI.removeListener(myWidgetListener);
 	}
 };
+
+var promptInputPath = {value:'C:\\Users\\Vayeate\\Documents\\GitHub\\NaOW\\icon.png'};
+
+function cuiCommand(aEvent) {
+	console.log('cuiCommand arguments:', arguments);
+	
+	var cDOMWindow = aEvent.target.ownerDocument.defaultView;
+	
+	var promptRezPath = Services.prompt.prompt(cDOMWindow, myServices.sb.GetStringFromName('prompt_title'), myServices.sb.GetStringFromName('prompt_text'), promptInputPath, null, {value:false});
+	if (promptRezPath) {
+		var cInputPath = promptInputPath.value.trim();
+		if (cInputPath.length != 0) {
+			var promise_showOpenWithDialog = MainWorker.post('showOpenWithDialog', [cInputPath]);
+			promise_showOpenWithDialog.then(
+				function(aVal) {
+					console.log('Fullfilled - promise_showOpenWithDialog - ', aVal);
+					// start - do stuff here - promise_showOpenWithDialog
+					// end - do stuff here - promise_showOpenWithDialog
+				},
+				function(aReason) {
+					var rejObj = {name:'promise_showOpenWithDialog', aReason:aReason};
+					console.warn('Rejected - promise_showOpenWithDialog - ', rejObj);
+					// deferred_createProfile.reject(rejObj);
+				}
+			).catch(
+				function(aCaught) {
+					var rejObj = {name:'promise_showOpenWithDialog', aCaught:aCaught};
+					console.error('Caught - promise_showOpenWithDialog - ', rejObj);
+					// deferred_createProfile.reject(rejObj);
+				}
+			);
+		}
+	}
+}
 // END - Addon Functionalities
 
 function install() {}
@@ -187,7 +221,8 @@ function startup(aData, aReason) {
 		onCreated: function(aNode) {
 			console.info('aNode:', aNode);
 			aNode.setAttribute('image', core.addon.path.images + 'icon16.png');
-		}
+		},
+		onCommand: cuiCommand
 	});
 	
 }
