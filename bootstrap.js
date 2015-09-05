@@ -3,7 +3,9 @@ const {classes: Cc, interfaces: Ci, manager: Cm, results: Cr, utils: Cu, Constru
 // Cm.QueryInterface(Ci.nsIComponentRegistrar);
 
 Cu.import('resource://gre/modules/devtools/Console.jsm');
+Cu.import('resource:///modules/CustomizableUI.jsm');
 Cu.import('resource://gre/modules/osfile.jsm');
+var PromiseWorker = Cu.import('resource://gre/modules/PromiseWorker.jsm', {}).BasePromiseWorker;
 Cu.import('resource://gre/modules/Services.jsm');
 Cu.import('resource://gre/modules/XPCOMUtils.jsm');
 
@@ -17,11 +19,11 @@ const core = {
 			content: 'chrome://naow/content/',
 			images: 'chrome://naow/content/resources/images/',
 			locale: 'chrome://naow/locale/',
-			modules: 'chrome://naow/content/resources/modules/',
+			modules: 'chrome://naow/content/modules/',
 			resources: 'chrome://naow/content/resources/',
 			scripts: 'chrome://naow/content/resources/scripts/',
 			styles: 'chrome://naow/content/resources/styles/',
-			workers: 'chrome://naow/content/resources/modules/workers/'
+			workers: 'chrome://naow/content/modules/workers/'
 		},
 		cache_key: Math.random() // set to version on release
 	},
@@ -38,6 +40,7 @@ const core = {
 
 const JETPACK_DIR_BASENAME = 'jetpack';
 const myPrefBranch = 'extensions.' + core.addon.id + '.';
+var bootstrap = this;
 
 // Lazy Imports
 const myServices = {};
@@ -97,8 +100,50 @@ function extendCore() {
 
 }
 
-// START - Addon Functionalities					
+// START - Addon Functionalities
+const myWidgetId = 'cui_naow';
+var myWidgetListener = {
+	onWidgetRemoved: function(aWidgetId, aArea) {
+		console.log('a widget REMOVED, arguments:', arguments);
+		if (aWidgetId != myWidgetId) {
+			return
+		}
+		console.log('my widget removed');
+		
+		var myInstances = CustomizableUI.getWidget(myWidgetId).instances;
+		for (var i=0; i<myInstances.length; i++) {
+			myInstances[i].node.setAttribute('image', core.addon.path.images + 'icon32.png');
+		}
+	},
+	onWidgetAdded: function(aWidgetId, aArea) {
+		console.log('a widget ADDED, arguments:', arguments);
+		if (aWidgetId != myWidgetId) {
+			return
+		}
+		console.log('my widget added');
+		
+		var useIcon;
+		if (aArea == CustomizableUI.AREA_PANEL) {
+			useIcon = core.addon.path.images + 'icon32.png';
+		} else {
+			useIcon = core.addon.path.images + 'icon16.png';
+		}
+		
+		var myInstances = CustomizableUI.getWidget(myWidgetId).instances;
+		for (var i=0; i<myInstances.length; i++) {
+			myInstances[i].node.setAttribute('image', useIcon);
+		}
 
+	},
+	onWidgetDestroyed: function(aWidgetId) {
+		console.log('a widget DESTROYED, arguments:', arguments);
+		if (aWidgetId != myWidgetId) {
+			return
+		}
+		console.log('my widget destoryed');
+		CustomizableUI.removeListener(myWidgetListener);
+	}
+};
 // END - Addon Functionalities
 
 function install() {}
@@ -108,11 +153,49 @@ function uninstall() {}
 function startup(aData, aReason) {
 	// core.addon.aData = aData;
 	extendCore();
+	
+	var promise_getMainWorker = SIPWorker('MainWorker', core.addon.path.workers + 'MainWorker.js');
+	promise_getMainWorker.then(
+		function(aVal) {
+			console.log('Fullfilled - promise_getMainWorker - ', aVal);
+			// start - do stuff here - promise_getMainWorker
+			// end - do stuff here - promise_getMainWorker
+		},
+		function(aReason) {
+			var rejObj = {
+				name: 'promise_getMainWorker',
+				aReason: aReason
+			};
+			console.warn('Rejected - promise_getMainWorker - ', rejObj);
+		}
+	).catch(
+		function(aCaught) {
+			var rejObj = {
+				name: 'promise_getMainWorker',
+				aCaught: aCaught
+			};
+			console.error('Caught - promise_getMainWorker - ', rejObj);
+		}
+	);
+	
+	CustomizableUI.addListener(myWidgetListener);
+	CustomizableUI.createWidget({
+		id: myWidgetId,
+		defaultArea: CustomizableUI.AREA_NAVBAR,
+		label: myServices.sb.GetStringFromName('cui_naow_lbl'),
+		tooltiptext: myServices.sb.GetStringFromName('cui_naow_tip'),
+		onCreated: function(aNode) {
+			console.info('aNode:', aNode);
+			aNode.setAttribute('image', core.addon.path.images + 'icon16.png');
+		}
+	});
+	
 }
 
 function shutdown(aData, aReason) {
 	if (aReason == APP_SHUTDOWN) { return }
-
+	
+	CustomizableUI.destroyWidget(myWidgetId);
 }
 
 // start - common helper functions
@@ -163,5 +246,51 @@ function Deferred() {
 		}.bind(this));
 		Object.freeze(this);
 	}
+}
+function SIPWorker(workerScopeName, aPath, aCore=core) {
+	// "Start and Initialize PromiseWorker"
+	// returns promise
+		// resolve value: jsBool true
+	// aCore is what you want aCore to be populated with
+	// aPath is something like `core.addon.path.content + 'modules/workers/blah-blah.js'`
+	
+	// :todo: add support and detection for regular ChromeWorker // maybe? cuz if i do then ill need to do ChromeWorker with callback
+	
+	var deferredMain_SIPWorker = new Deferred();
+
+	if (!(workerScopeName in bootstrap)) {
+		bootstrap[workerScopeName] = new PromiseWorker(aPath);
+		
+		if ('addon' in aCore && 'aData' in aCore.addon) {
+			delete aCore.addon.aData; // we delete this because it has nsIFile and other crap it, but maybe in future if I need this I can try JSON.stringify'ing it
+		}
+		
+		var promise_initWorker = bootstrap[workerScopeName].post('init', [aCore]);
+		promise_initWorker.then(
+			function(aVal) {
+				console.log('Fullfilled - promise_initWorker - ', aVal);
+				// start - do stuff here - promise_initWorker
+				deferredMain_SIPWorker.resolve(true);
+				// end - do stuff here - promise_initWorker
+			},
+			function(aReason) {
+				var rejObj = {name:'promise_initWorker', aReason:aReason};
+				console.warn('Rejected - promise_initWorker - ', rejObj);
+				deferredMain_SIPWorker.reject(rejObj);
+			}
+		).catch(
+			function(aCaught) {
+				var rejObj = {name:'promise_initWorker', aCaught:aCaught};
+				console.error('Caught - promise_initWorker - ', rejObj);
+				deferredMain_SIPWorker.reject(rejObj);
+			}
+		);
+		
+	} else {
+		deferredMain_SIPWorker.reject('Something is loaded into bootstrap[workerScopeName] already');
+	}
+	
+	return deferredMain_SIPWorker.promise;
+	
 }
 // end - common helper functions
